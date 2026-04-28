@@ -6,10 +6,10 @@ Simplex Solver is a web application developed for the Operations Research course
 
 | Teammate    | Function         |
 |-------------|------------------|
-| Giovana     |                  |
-|             |                  |
-|             |                  |
-|             |                  |
+|Giovana     | Project Manager & QA |
+|Guilherme   | Backend Developer|
+|João Pedro  | UI UX Designer & Frontend Developer |
+| Tamires    | Data Visualization & Integration Engineer|
 ---
 
 ## About the Project
@@ -35,8 +35,6 @@ The system focuses on:
   - Feasible region
   - Optimal solution point
 - Responsive interface
-- Dark theme with subtle starry background 
-
 ---
 
 ## Tech Stack
