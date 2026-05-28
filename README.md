@@ -1,6 +1,6 @@
-# 🚀 Operations-Research-Final-Project 2026 | Simplex Solver Space   
+# Operations-Research-Final-Project 2026 | RIPA
 
-Simplex Solver is a web application developed for the Operations Research course, focused on solving Linear Programming problems using the Simplex method.
+RIPA is a web application developed for the Operations Research course, focused on solving Linear Programming problems using the Simplex method.
 
 ## Team
 
