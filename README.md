@@ -43,7 +43,7 @@ The system focuses on:
 |-------------|------------------|
 | Frontend    | React + Vite     |
 | Language    | JavaScript       |
-| Charts      | Plotly.js        |
+| Charts      | Chart.js        |
 | Styling     | CSS / Tailwind   |
 | Deployment  | Vercel / Netlify |
 
