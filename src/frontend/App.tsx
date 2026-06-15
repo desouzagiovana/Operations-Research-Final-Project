@@ -15,6 +15,9 @@ const App: React.FC = () => {
   const [funcZ, setFuncZ] = useState<Record<number, number>>({});
   const [restricoes, setRestricoes] = useState<Constraint[]>([]);
   const [resultado, setResultado] = useState<any>(null);
+  
+  // NOVO: Estado para armazenar o resultado da solução inteira (Branch and Bound)
+  const [integerResultado, setIntegerResultado] = useState<any>(null); 
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleNavigate = (s: Screen) => setScreen(s);
@@ -62,7 +65,10 @@ const App: React.FC = () => {
       });
       
       const data = await res.json();
-      setResultado(data);
+      
+      // NOVO: A API agora envia dois objetos distintos. Salvamos cada um em seu próprio estado.
+      setResultado(data.continuous);
+      setIntegerResultado(data.integer);
       setScreen('RESULTADO');
     } catch (err) {
       alert('Erro ao comunicar com a API: ' + String(err));
@@ -92,8 +98,16 @@ const App: React.FC = () => {
         />;
       case 'RESULTADO':
         return <ResultadoPage 
-          resultado={resultado} nVars={nVars} funcZ={funcZ} restricoes={restricoes} 
-          onNovoProblema={() => { setResultado(null); setScreen('TIPO'); }} 
+          resultado={resultado} 
+          integerResultado={integerResultado} // NOVO: Passando a prop
+          nVars={nVars} 
+          funcZ={funcZ} 
+          restricoes={restricoes} 
+          onNovoProblema={() => { 
+            setResultado(null); 
+            setIntegerResultado(null); // NOVO: Limpando a dica de inteiros ao resetar
+            setScreen('TIPO'); 
+          }} 
         />;
       default:
         return null;

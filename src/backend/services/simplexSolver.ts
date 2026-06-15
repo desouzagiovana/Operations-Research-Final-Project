@@ -114,12 +114,24 @@ export async function solveSimplex(problem: Problem): Promise<SimplexResult> {
   let optimalValue = cleanZero(tableau[numRows - 1][numCols - 1]);
   // No tableau, se Z - cX = RHS, o valor de Z real é o RHS
   // Para minimização no M-Grande, a matemática da tabela nos dá o inverso dependendo da montagema
+  let hasMultipleSolutions = false;
+  const finalObjRow = tableau[numRows - 1];
+  for (let j = 0; j < numCols - 1; j++) {
+    // Se a coluna 'j' não está na base, mas o custo reduzido dela é 0
+    if (!basisVarIndices.includes(j) && Math.abs(finalObjRow[j]) < EPSILON) {
+      // Ignora colunas de variáveis artificiais do M-Grande se quiser ser super preciso, 
+      // mas a regra geral é essa:
+      hasMultipleSolutions = true;
+      break;
+    }
+  }
 
   return {
     status: 'optimal',
     optimalSolution: solution,
     optimalValue,
     iterations,
+    hasMultipleSolutions 
   } as SimplexResult;
 }
 
