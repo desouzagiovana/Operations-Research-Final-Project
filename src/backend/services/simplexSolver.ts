@@ -1,179 +1,262 @@
 import { Problem, SimplexResult } from '../models/problemModel.js';
 
+const EPSILON = 1e-9;
+const MAX_ITERATIONS = 100;
+const BIG_M = 1000000; // Valor arbitrariamente grande para penalização
+
 /**
- * Simplex solver for linear programming problems.
- * Supports max/min objectives and constraints of type <=, >=, =.
- * Returns iteration tableaux, optimal solution, and status.
+ * Limpa erros de ponto flutuante do JS (ex: 0.30000000000000004 -> 0.3)
  */
+function cleanZero(value: number): number {
+  return Math.abs(value) < EPSILON ? 0 : value;
+}
+
 export async function solveSimplex(problem: Problem): Promise<SimplexResult> {
-  // Convert to standard form (all constraints <= with non‑negative RHS)
-  const { tableau, varNames, basisVarIndices } = buildStandardTableau(problem);
+  const { tableau, varNames, basisVarIndices, artificialIndices } = buildStandardTableau(problem);
   const iterations: number[][][] = [];
-  // Record initial tableau
+  const isMax = problem.objective.direction === 'max';
+  
   iterations.push(cloneTableau(tableau));
 
   const numRows = tableau.length;
   const numCols = tableau[0].length;
+  let iterationCount = 0;
 
-  while (true) {
-    // Identify entering variable (most negative coefficient in objective row)
+  while (iterationCount < MAX_ITERATIONS) {
+    iterationCount++;
     const objRow = tableau[numRows - 1];
+    
+    // 1. Escolha da Variável de Entrada (Coluna Pivô) com critério explícito Max/Min
     let enteringCol = -1;
-    let mostNegative = 0;
+    let bestVal = 0;
+
     for (let j = 0; j < numCols - 1; j++) {
-      if (objRow[j] < mostNegative) {
-        mostNegative = objRow[j];
-        enteringCol = j;
+      const val = objRow[j];
+      if (isMax) {
+        if (val < -EPSILON && val < bestVal) {
+          bestVal = val;
+          enteringCol = j;
+        }
+      } else {
+        if (val > EPSILON && val > bestVal) {
+          bestVal = val;
+          enteringCol = j;
+        }
       }
     }
-    if (enteringCol === -1) {
-      // optimal
-      break;
-    }
-    // Identify leaving variable (minimum ratio test)
+
+    // Critério de parada: Otimalidade atingida
+    if (enteringCol === -1) break;
+
+    // 2. Teste de Razão Mínima (Linha Pivô)
     let minRatio = Infinity;
     let leavingRow = -1;
+
     for (let i = 0; i < numRows - 1; i++) {
       const colCoeff = tableau[i][enteringCol];
-      if (colCoeff > 0) {
+      // Ignora estritamente divisões por valores <= 0
+      if (colCoeff > EPSILON) {
         const ratio = tableau[i][numCols - 1] / colCoeff;
-        if (ratio < minRatio) {
+        if (ratio >= 0 && ratio < minRatio) {
           minRatio = ratio;
           leavingRow = i;
         }
       }
     }
+
+    // Critério de parada: Problema Ilimitado
     if (leavingRow === -1) {
-      // unbounded
       return {
         status: 'unbounded',
         iterations,
-        message: 'Problem is unbounded',
+        message: 'Problema ilimitado: Nenhuma variável candidata para sair da base.',
       } as SimplexResult;
     }
-    // Pivot on (leavingRow, enteringCol)
+
+    // 3. Pivotamento e atualização de Base
     pivot(tableau, leavingRow, enteringCol);
-    // Update basis tracking
     basisVarIndices[leavingRow] = enteringCol;
     iterations.push(cloneTableau(tableau));
   }
 
-  // Extract solution
+  // Verifica loop infinito
+  if (iterationCount >= MAX_ITERATIONS) {
+    return {
+      status: 'infeasible', // Tratado como inviável/não-resolvido para fins práticos
+      iterations,
+      message: 'Limite de iterações excedido (possível ciclo/degeneração).',
+    } as SimplexResult;
+  }
+
+  // Extração da Solução Ótima
   const solution: { [variable: string]: number } = {};
+  for (let j = 0; j < varNames.length; j++) solution[varNames[j]] = 0;
+
   for (let i = 0; i < basisVarIndices.length; i++) {
     const varIdx = basisVarIndices[i];
-    const varName = varNames[varIdx];
-    solution[varName] = tableau[i][numCols - 1];
+    solution[varNames[varIdx]] = cleanZero(tableau[i][numCols - 1]);
   }
-  // Non‑basic vars = 0
-  for (let j = 0; j < varNames.length; j++) {
-    if (!Object.prototype.hasOwnProperty.call(solution, varNames[j])) {
-      solution[varNames[j]] = 0;
+
+  // Verifica se o problema é inviável (variáveis artificiais continuam na base com valor > 0)
+  const isInfeasible = artificialIndices.some(
+    (idx) => basisVarIndices.includes(idx) && solution[varNames[idx]] > EPSILON
+  );
+
+  if (isInfeasible) {
+    return {
+      status: 'infeasible',
+      iterations,
+      message: 'Problema Inviável: Variáveis artificiais não puderam ser removidas da base.',
+    } as SimplexResult;
+  }
+
+  // O valor ótimo de Z precisa ter seu sinal ajustado no tableau final
+  let optimalValue = cleanZero(tableau[numRows - 1][numCols - 1]);
+  // No tableau, se Z - cX = RHS, o valor de Z real é o RHS
+  // Para minimização no M-Grande, a matemática da tabela nos dá o inverso dependendo da montagema
+  let hasMultipleSolutions = false;
+  const finalObjRow = tableau[numRows - 1];
+  for (let j = 0; j < numCols - 1; j++) {
+    // Se a coluna 'j' não está na base, mas o custo reduzido dela é 0
+    if (!basisVarIndices.includes(j) && Math.abs(finalObjRow[j]) < EPSILON) {
+      // Ignora colunas de variáveis artificiais do M-Grande se quiser ser super preciso, 
+      // mas a regra geral é essa:
+      hasMultipleSolutions = true;
+      break;
     }
   }
-  const optimalValue = tableau[numRows - 1][numCols - 1] * (problem.objective.direction === 'max' ? 1 : -1);
 
   return {
     status: 'optimal',
     optimalSolution: solution,
     optimalValue,
     iterations,
+    hasMultipleSolutions 
   } as SimplexResult;
 }
 
-/** Helper: build standard tableau */
+/** * Helper: Constrói a Matriz Padrão (M-Grande embutido)
+ */
 function buildStandardTableau(problem: Problem) {
   const numOriginalVars = problem.objective.coefficients.length;
-  const constraints = problem.constraints.map((c) => {
-    // Ensure RHS non‑negative
-    let coeffs = c.coefficients.slice();
+  const isMax = problem.objective.direction === 'max';
+  const M = isMax ? -BIG_M : BIG_M; // Penalização na FO
+
+  // Pré-processa as restrições para garantir RHS >= 0
+  const constraints = problem.constraints.map(c => {
+    let coeffs = [...c.coefficients];
     let rhs = c.rhs;
     let type = c.type;
-    if (rhs < 0) {
-      coeffs = coeffs.map((v) => -v);
+
+    if (rhs < -EPSILON) {
+      coeffs = coeffs.map(v => -v);
       rhs = -rhs;
-      // Reverse inequality direction
       if (type === '<=') type = '>=';
       else if (type === '>=') type = '<=';
     }
-    // Convert >= to <= by multiplying -1
-    if (type === '>=') {
-      coeffs = coeffs.map((v) => -v);
-      rhs = -rhs;
-      type = '<=';
-    }
-    // Equality is split into two <= constraints
-    if (type === '=') {
-      return [
-        { coefficients: coeffs, rhs },
-        { coefficients: coeffs.map((v) => -v), rhs: -rhs },
-      ];
-    }
-    return [{ coefficients: coeffs, rhs }];
-  }).flat();
+    return { coefficients: coeffs, type, rhs };
+  });
 
   const numConstraints = constraints.length;
-  // Total variables = original + slack for each constraint
-  const totalVars = numOriginalVars + numConstraints;
   const varNames: string[] = [];
   for (let i = 0; i < numOriginalVars; i++) varNames.push(`x${i + 1}`);
-  for (let i = 0; i < numConstraints; i++) varNames.push(`s${i + 1}`);
 
-  // Build tableau matrix (rows = constraints + objective)
+  let totalSlackSurplus = 0;
+  let totalArtificials = 0;
+  
+  // Contagem para montar os nomes das variáveis dinamicamente
+  constraints.forEach(c => {
+    if (c.type === '<=') { varNames.push(`f${++totalSlackSurplus}`); }
+    else if (c.type === '>=') { varNames.push(`e${++totalSlackSurplus}`); varNames.push(`a${++totalArtificials}`); }
+    else if (c.type === '=') { varNames.push(`a${++totalArtificials}`); }
+  });
+
+  const totalVars = varNames.length;
   const tableau: number[][] = [];
+  const basisVarIndices: number[] = [];
+  const artificialIndices: number[] = [];
+
+  let colIdx = numOriginalVars;
+  
   for (let i = 0; i < numConstraints; i++) {
     const row: number[] = new Array(totalVars + 1).fill(0);
     const cons = constraints[i];
-    // Original variable coefficients
+    
     for (let j = 0; j < numOriginalVars; j++) {
       row[j] = cons.coefficients[j] ?? 0;
     }
-    // Slack variable coefficient = 1 for this row
-    row[numOriginalVars + i] = 1;
-    // RHS
+
+    if (cons.type === '<=') {
+      row[colIdx] = 1; // Variável de folga
+      basisVarIndices.push(colIdx);
+      colIdx++;
+    } else if (cons.type === '>=') {
+      row[colIdx] = -1; // Variável de excesso
+      colIdx++;
+      row[colIdx] = 1; // Variável artificial
+      basisVarIndices.push(colIdx);
+      artificialIndices.push(colIdx);
+      colIdx++;
+    } else if (cons.type === '=') {
+      row[colIdx] = 1; // Variável artificial
+      basisVarIndices.push(colIdx);
+      artificialIndices.push(colIdx);
+      colIdx++;
+    }
+
     row[totalVars] = cons.rhs;
     tableau.push(row);
   }
-  // Objective row (last row)
+
+  // Linha da Função Objetivo
   const objRow: number[] = new Array(totalVars + 1).fill(0);
-  const coeffSign = problem.objective.direction === 'max' ? -1 : 1; // Convert to minimization for tableau
   for (let j = 0; j < numOriginalVars; j++) {
-    objRow[j] = coeffSign * problem.objective.coefficients[j];
+    objRow[j] = -problem.objective.coefficients[j];
   }
-  // Slack vars have 0
-  objRow[totalVars] = 0;
+
+  // Adicionando as penalidades do M-Grande nas variáveis artificiais
+  artificialIndices.forEach(aIdx => {
+    objRow[aIdx] = -M;
+  });
   tableau.push(objRow);
 
-  // Basis initially consists of slack variables indices
-  const basisVarIndices = [] as number[];
+  // Operação de linha para zerar as variáveis artificiais na linha de Z (Inicialização do M-Grande)
   for (let i = 0; i < numConstraints; i++) {
-    basisVarIndices.push(numOriginalVars + i);
+    const basicVarIdx = basisVarIndices[i];
+    if (artificialIndices.includes(basicVarIdx)) {
+      const factor = tableau[numConstraints][basicVarIdx]; // Valor atual (M ou -M)
+      for (let j = 0; j <= totalVars; j++) {
+        tableau[numConstraints][j] = cleanZero(tableau[numConstraints][j] - factor * tableau[i][j]);
+      }
+    }
   }
 
-  return { tableau, varNames, basisVarIndices };
+  return { tableau, varNames, basisVarIndices, artificialIndices };
 }
 
-/** Perform pivot operation */
+/** * Operação exata de Pivotamento (Gauss-Jordan)
+ */
 function pivot(tableau: number[][], pivotRow: number, pivotCol: number) {
   const numRows = tableau.length;
   const numCols = tableau[0].length;
   const pivotElement = tableau[pivotRow][pivotCol];
-  // Normalize pivot row
+
+  // 1. Normaliza a Linha Pivô
   for (let j = 0; j < numCols; j++) {
-    tableau[pivotRow][j] /= pivotElement;
+    tableau[pivotRow][j] = cleanZero(tableau[pivotRow][j] / pivotElement);
   }
-  // Eliminate other rows
+
+  // 2. Eliminação de Gauss-Jordan nas demais linhas
   for (let i = 0; i < numRows; i++) {
     if (i !== pivotRow) {
       const factor = tableau[i][pivotCol];
       for (let j = 0; j < numCols; j++) {
-        tableau[i][j] -= factor * tableau[pivotRow][j];
+        tableau[i][j] = cleanZero(tableau[i][j] - factor * tableau[pivotRow][j]);
       }
     }
   }
 }
 
-/** Deep clone tableau for iteration recording */
 function cloneTableau(tab: number[][]): number[][] {
-  return tab.map((row) => row.slice());
+  return tab.map((row) => [...row]);
 }

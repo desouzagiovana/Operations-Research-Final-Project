@@ -88,8 +88,7 @@ export const SimplexGraph: React.FC<SimplexGraphProps> = ({ nVars, funcZ, restri
 
     // Constraint lines
     const colors = ["#6b5894", "#df6a45", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
-    const zCoefs = Object.values(funcZ);
-
+    
     restricoes.forEach((r, idx) => {
       const a = parseFloat(r.coeficientes[0] as any || 0);
       const b = parseFloat(r.coeficientes[1] as any || 0);
@@ -117,18 +116,52 @@ export const SimplexGraph: React.FC<SimplexGraphProps> = ({ nVars, funcZ, restri
       ctx.globalAlpha = 1;
     });
 
-    // Objective at optimal
-    const aZ = parseFloat(zCoefs[0] as any || 0);
-    const bZ = parseFloat(zCoefs[1] as any || 0);
+    // NOVO: Plotando as Curvas de Nível (Objective Function progression)
+    const aZ = parseFloat(funcZ[0] as any || 0);
+    const bZ = parseFloat(funcZ[1] as any || 0);
     const zVal = optimalValue || 0;
-    if (Math.abs(bZ) > TOL) {
-      ctx.strokeStyle = "#362724";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([6, 3]);
-      ctx.globalAlpha = 0.9;
-      const x0 = 0, y0 = zVal / bZ;
-      const x1 = xMax, y1 = (zVal - aZ * xMax) / bZ;
-      ctx.beginPath(); ctx.moveTo(tx(x0), ty(y0)); ctx.lineTo(tx(x1), ty(y1)); ctx.stroke();
+    
+    if (Math.abs(aZ) > TOL || Math.abs(bZ) > TOL) {
+      // Cria 3 níveis de Z: Origem, Metade do Caminho, e o Ótimo
+      const levelCurves = [];
+      if (Math.abs(zVal) > TOL) {
+        levelCurves.push(0);           // Origem
+        levelCurves.push(zVal * 0.5);  // Metade do deslocamento
+      }
+      levelCurves.push(zVal);          // Ponto Ótimo
+
+      levelCurves.forEach((z, index) => {
+        const isOptimalLine = index === levelCurves.length - 1;
+        
+        ctx.strokeStyle = "#362724";
+        ctx.lineWidth = isOptimalLine ? 2 : 1;
+        ctx.setLineDash(isOptimalLine ? [6, 3] : [2, 4]); // Tracejado mais fraco nas intermediárias
+        ctx.globalAlpha = isOptimalLine ? 0.9 : 0.3;      // Transparência nas intermediárias
+
+        ctx.beginPath();
+        if (Math.abs(bZ) > TOL) {
+          const x0 = -xMax, y0 = (z - aZ * (-xMax)) / bZ;
+          const x1 = xMax * 2, y1 = (z - aZ * (xMax * 2)) / bZ;
+          ctx.moveTo(tx(x0), ty(y0)); 
+          ctx.lineTo(tx(x1), ty(y1));
+        } else {
+          // Caso a variável x2 seja nula na Função Objetivo
+          const x = z / aZ;
+          ctx.moveTo(tx(x), ty(-yMax)); 
+          ctx.lineTo(tx(x), ty(yMax * 2));
+        }
+        ctx.stroke();
+
+        // Legenda pequena na ponta da curva de nível
+        if (!isOptimalLine) {
+          ctx.fillStyle = "rgba(54,39,36,0.6)";
+          ctx.font = "italic 9px sans-serif";
+          ctx.textAlign = "right";
+          const labelX = xMax * 0.8;
+          const labelY = Math.abs(bZ) > TOL ? (z - aZ * labelX) / bZ : yMax * 0.8;
+          ctx.fillText(`Z=${z.toFixed(1)}`, tx(labelX), ty(labelY) - 4);
+        }
+      });
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     }
@@ -162,7 +195,8 @@ export const SimplexGraph: React.FC<SimplexGraphProps> = ({ nVars, funcZ, restri
 
   return (
     <div className="mb-10 p-6 bg-white border border-[#e8dcc8] rounded-xl shadow-sm">
-      <h3 className="text-lg font-bold text-[#362724] mb-4">Gráfico da Região Viável</h3>
+      <h3 className="text-lg font-bold text-[#362724] mb-1">Gráfico da Região Viável & Curvas de Nível</h3>
+      <p className="text-xs text-[#8c827a] mb-4">A reta tracejada escura representa Z máximo/mínimo. As retas claras mostram o deslocamento (níveis) de Z.</p>
       <canvas ref={canvasRef} width={400} height={250} className="w-full h-auto"></canvas>
     </div>
   );

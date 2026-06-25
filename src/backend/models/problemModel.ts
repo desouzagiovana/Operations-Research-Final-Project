@@ -22,5 +22,6 @@ export interface SimplexResult {
   optimalSolution?: { [variable: string]: number };
   optimalValue?: number;
   iterations: number[][][]; // Array of tableaux (each tableau is 2‑D array of numbers)
+  hasMultipleSolutions?: boolean;
   message?: string;
 }
