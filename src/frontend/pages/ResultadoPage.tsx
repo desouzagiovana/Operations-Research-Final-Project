@@ -130,12 +130,13 @@ export const ResultadoPage: React.FC<ResultadoPageProps> = ({
           </div>
         )}
         
-        <SimplexGraph 
-          nVars={nVars} 
-          funcZ={funcZ} 
-          restricoes={restricoes} 
-          optimalSolution={optimalSolution} 
-          optimalValue={optimalValue} 
+        <SimplexGraph
+          nVars={nVars}
+          funcZ={funcZ}
+          restricoes={restricoes}
+          optimalSolution={optimalSolution}
+          optimalValue={optimalValue}
+          integerSolution={integerResultado && integerResultado.hasIntegerSolution ? integerResultado.bestIntegerSolution : undefined}
         />
 
         <div className="bg-white p-6 border border-[#e8dcc8] rounded-xl shadow-sm mt-8">
