@@ -146,10 +146,10 @@ export const SimplexGraph: React.FC<SimplexGraphProps> = ({ nVars, funcZ, restri
           if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         });
         ctx.closePath();
-        ctx.fillStyle = "rgba(223,106,69,0.15)";
+        ctx.fillStyle = "rgba(223,106,69,0.32)";
         ctx.fill();
-        ctx.strokeStyle = "rgba(223,106,69,0.6)";
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "rgba(223,106,69,0.95)";
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
     }
