@@ -103,11 +103,12 @@ const App: React.FC = () => {
           nVars={nVars} 
           funcZ={funcZ} 
           restricoes={restricoes} 
-          onNovoProblema={() => { 
-            setResultado(null); 
+          onNovoProblema={() => {
+            setResultado(null);
             setIntegerResultado(null); // NOVO: Limpando a dica de inteiros ao resetar
-            setScreen('TIPO'); 
-          }} 
+            setScreen('TIPO');
+          }}
+          onVoltarEditar={() => setScreen('DADOS')} // NOVO: Volta para edição mantendo os dados
         />;
       default:
         return null;

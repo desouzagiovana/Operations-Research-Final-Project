@@ -191,11 +191,30 @@ export const SimplexGraph: React.FC<SimplexGraphProps> = ({ nVars, funcZ, restri
 
   }, [nVars, funcZ, restricoes, optimalSolution, optimalValue]);
 
+  const handleDownloadImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = 'grafico-simplex.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
   if (nVars !== 2) return null;
 
   return (
     <div className="mb-10 p-6 bg-white border border-[#e8dcc8] rounded-xl shadow-sm">
-      <h3 className="text-lg font-bold text-[#362724] mb-1">Gráfico da Região Viável & Curvas de Nível</h3>
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <h3 className="text-lg font-bold text-[#362724]">Gráfico da Região Viável & Curvas de Nível</h3>
+        <button
+          onClick={handleDownloadImage}
+          className="shrink-0 text-xs font-medium border border-[#e8dcc8] bg-transparent hover:bg-[#F6EFE6] px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
+          title="Baixar imagem do gráfico (PNG)"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Baixar gráfico
+        </button>
+      </div>
       <p className="text-xs text-[#8c827a] mb-4">A reta tracejada escura representa Z máximo/mínimo. As retas claras mostram o deslocamento (níveis) de Z.</p>
       <canvas ref={canvasRef} width={400} height={250} className="w-full h-auto"></canvas>
     </div>

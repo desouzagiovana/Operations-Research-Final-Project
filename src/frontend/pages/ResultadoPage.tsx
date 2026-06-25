@@ -9,19 +9,43 @@ interface ResultadoPageProps {
   funcZ: Record<number, number>;
   restricoes: any[]; // ou Constraint[] dependendo de como você importou
   onNovoProblema: () => void;
+  onVoltarEditar: () => void; // <-- Volta para a tela de Dados mantendo o problema
 }
 
-export const ResultadoPage: React.FC<ResultadoPageProps> = ({ 
-  resultado, 
+export const ResultadoPage: React.FC<ResultadoPageProps> = ({
+  resultado,
   integerResultado, // <-- Extraindo a prop aqui
-  nVars, 
-  funcZ, 
-  restricoes, 
-  onNovoProblema 
+  nVars,
+  funcZ,
+  restricoes,
+  onNovoProblema,
+  onVoltarEditar
 }) => {
   if (!resultado) return null;
 
   const { status, optimalSolution, optimalValue, iterations, message, hasMultipleSolutions } = resultado;
+
+  const handleDownloadTabela = async () => {
+    if (!iterations || iterations.length === 0) return;
+    // Carrega a lib só ao baixar, para não pesar o bundle inicial.
+    const XLSX = await import('xlsx');
+    // Exporta XLSX com números nativos: o valor é guardado como número binário,
+    // sem separador decimal no texto, então não há ambiguidade de locale (pt-BR x EUA).
+    const aoa: (string | number)[][] = [];
+    iterations.forEach((tab: number[][], idx: number) => {
+      aoa.push([`Iteração ${idx}`]);
+      tab.forEach((row: number[]) => {
+        // Arredonda para 4 casas, mas mantém como NÚMERO (não string).
+        aoa.push(row.map((c) => Number(Number(c).toFixed(4))));
+      });
+      aoa.push([]); // linha em branco entre as tabelas
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tableau');
+    XLSX.writeFile(wb, 'tabela-simplex.xlsx');
+  };
 
   let content = null;
   if (status === 'unbounded') {
@@ -115,7 +139,17 @@ export const ResultadoPage: React.FC<ResultadoPageProps> = ({
         />
 
         <div className="bg-white p-6 border border-[#e8dcc8] rounded-xl shadow-sm mt-8">
-          <h3 className="text-lg font-bold text-[#362724] mb-6 border-b border-[#e8dcc8] pb-2">Passo a Passo (Tableau)</h3>
+          <div className="flex items-center justify-between gap-4 mb-6 border-b border-[#e8dcc8] pb-2">
+            <h3 className="text-lg font-bold text-[#362724]">Passo a Passo (Tableau)</h3>
+            <button
+              onClick={handleDownloadTabela}
+              className="shrink-0 text-xs font-medium border border-[#e8dcc8] bg-transparent hover:bg-[#F6EFE6] px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
+              title="Baixar tabela (Excel .xlsx)"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Baixar tabela
+            </button>
+          </div>
           {iterations && iterations.map((tab: number[][], idx: number) => (
             <div key={`tab-${idx}`} className="mb-8 overflow-x-auto">
               <h4 className="text-sm font-bold text-[#8c827a] mb-2 uppercase tracking-wide">Iteração {idx}</h4>
@@ -139,7 +173,16 @@ export const ResultadoPage: React.FC<ResultadoPageProps> = ({
 
   return (
     <>
-      <Badge text="Resultado Final" />
+      <div className="flex items-center justify-between gap-4 mb-2">
+        <button
+          onClick={onVoltarEditar}
+          className="text-sm font-medium border border-[#e8dcc8] bg-transparent hover:bg-[#F6EFE6] px-4 py-2 rounded-full transition-colors flex items-center gap-1.5"
+          title="Voltar e editar o problema"
+        >
+          ← Editar problema
+        </button>
+        <Badge text="Resultado Final" />
+      </div>
       {content}
       <div className="mt-8 flex justify-center">
         <button 
