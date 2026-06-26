@@ -17,7 +17,9 @@ const App: React.FC = () => {
   const [resultado, setResultado] = useState<any>(null);
   
   // NOVO: Estado para armazenar o resultado da solução inteira (Branch and Bound)
-  const [integerResultado, setIntegerResultado] = useState<any>(null); 
+  const [integerResultado, setIntegerResultado] = useState<any>(null);
+  // NOVO: Estado para a solução tabular dual (bônus)
+  const [dualResultado, setDualResultado] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleNavigate = (s: Screen) => setScreen(s);
@@ -43,7 +45,7 @@ const App: React.FC = () => {
     setRestricoes(newRestricoes.slice(0, rests));
   };
 
-  const handleSolve = async () => {
+  const handleSolve = async (includeDual: boolean = false) => {
     setLoading(true);
     try {
       const payload = {
@@ -55,7 +57,8 @@ const App: React.FC = () => {
           coefficients: Array.from({ length: nVars }).map((_, i) => r.coeficientes[i] || 0),
           type: r.sinal,
           rhs: r.rhs
-        }))
+        })),
+        includeDual // NOVO: pede ao backend a solução tabular dual
       };
 
       const res = await fetch('/api/simplex', {
@@ -63,12 +66,13 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       const data = await res.json();
-      
+
       // NOVO: A API agora envia dois objetos distintos. Salvamos cada um em seu próprio estado.
       setResultado(data.continuous);
       setIntegerResultado(data.integer);
+      setDualResultado(data.dual || null); // NOVO: solução dual (só vem quando includeDual=true)
       setScreen('RESULTADO');
     } catch (err) {
       alert('Erro ao comunicar com a API: ' + String(err));
@@ -97,17 +101,20 @@ const App: React.FC = () => {
           restricoes={restricoes} setRestricoes={setRestricoes} onResolve={handleSolve} loading={loading}
         />;
       case 'RESULTADO':
-        return <ResultadoPage 
-          resultado={resultado} 
+        return <ResultadoPage
+          resultado={resultado}
           integerResultado={integerResultado} // NOVO: Passando a prop
-          nVars={nVars} 
-          funcZ={funcZ} 
-          restricoes={restricoes} 
-          onNovoProblema={() => { 
-            setResultado(null); 
+          dualResultado={dualResultado} // NOVO: solução tabular dual
+          nVars={nVars}
+          funcZ={funcZ}
+          restricoes={restricoes}
+          onNovoProblema={() => {
+            setResultado(null);
             setIntegerResultado(null); // NOVO: Limpando a dica de inteiros ao resetar
-            setScreen('TIPO'); 
-          }} 
+            setDualResultado(null); // NOVO: Limpando o dual ao resetar
+            setScreen('TIPO');
+          }}
+          onVoltarEditar={() => setScreen('DADOS')} // NOVO: Volta para edição mantendo os dados
         />;
       default:
         return null;
