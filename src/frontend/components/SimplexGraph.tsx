@@ -3,7 +3,7 @@ import { Constraint } from '../types';
 
 interface SimplexGraphProps {
   nVars: number;
-  funcZ: Record<number, number>;
+  funcZ: Record<number, number | string>;
   restricoes: Constraint[];
   optimalSolution: Record<string, number>;
   optimalValue: number;

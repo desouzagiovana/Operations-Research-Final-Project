@@ -1,4 +1,5 @@
 import express from 'express';
+// @ts-ignore
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import simplexRouter from './routes/simplex.js';

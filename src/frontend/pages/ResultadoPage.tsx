@@ -7,7 +7,7 @@ interface ResultadoPageProps {
   integerResultado?: any; // <-- Prop opcional adicionada para corrigir o erro do TypeScript
   dualResultado?: any; // <-- Solução tabular dual (bônus)
   nVars: number;
-  funcZ: Record<number, number>;
+  funcZ: Record<number, number | string>;
   restricoes: any[]; // ou Constraint[] dependendo de como você importou
   onNovoProblema: () => void;
   onVoltarEditar: () => void; // <-- Volta para a tela de Dados mantendo o problema

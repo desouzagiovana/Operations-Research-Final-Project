@@ -6,13 +6,14 @@ import { EstruturaPage } from './pages/EstruturaPage';
 import { DadosPage } from './pages/DadosPage';
 import { ResultadoPage } from './pages/ResultadoPage';
 import { AppState, Screen, Constraint } from './types';
+import { parseNumericValue } from './utils/math';
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<Screen>('HOME');
   const [tipo, setTipo] = useState<'max' | 'min'>('max');
-  const [nVars, setNVars] = useState<number>(2);
-  const [nRest, setNRest] = useState<number>(2);
-  const [funcZ, setFuncZ] = useState<Record<number, number>>({});
+  const [nVars, setNVars] = useState<number | string>(2);
+  const [nRest, setNRest] = useState<number | string>(2);
+  const [funcZ, setFuncZ] = useState<Record<number, number | string>>({});
   const [restricoes, setRestricoes] = useState<Constraint[]>([]);
   const [resultado, setResultado] = useState<any>(null);
   
@@ -31,32 +32,50 @@ const App: React.FC = () => {
     else if (screen === 'TIPO') setScreen('HOME');
   };
 
-  const initStructures = (vars: number, rests: number) => {
+  const initStructures = (vars: number | string, rests: number | string) => {
+    let parsedVars = typeof vars === 'number' ? vars : parseInt(vars.toString()) || 2;
+    parsedVars = Math.max(2, Math.min(10, parsedVars));
+    let parsedRests = typeof rests === 'number' ? rests : parseInt(rests.toString()) || 2;
+    parsedRests = Math.max(1, Math.min(15, parsedRests));
+
+    setNVars(parsedVars);
+    setNRest(parsedRests);
+
     const newFuncZ = { ...funcZ };
-    for (let i = 0; i < vars; i++) newFuncZ[i] = newFuncZ[i] || 0;
+    for (let i = 0; i < parsedVars; i++) newFuncZ[i] = newFuncZ[i] !== undefined ? newFuncZ[i] : 0;
     setFuncZ(newFuncZ);
 
     let newRestricoes = [...restricoes];
-    while (newRestricoes.length < rests) {
-      const coefs: Record<number, number> = {};
-      for (let i = 0; i < vars; i++) coefs[i] = 0;
+    while (newRestricoes.length < parsedRests) {
+      const coefs: Record<number, number | string> = {};
+      for (let i = 0; i < parsedVars; i++) coefs[i] = 0;
       newRestricoes.push({ coeficientes: coefs, sinal: '<=', rhs: 0 });
     }
-    setRestricoes(newRestricoes.slice(0, rests));
+    setRestricoes(newRestricoes.slice(0, parsedRests));
   };
 
   const handleSolve = async (includeDual: boolean = false) => {
     setLoading(true);
     try {
+      const varsCount = typeof nVars === 'number' ? nVars : parseInt(nVars.toString()) || 2;
       const payload = {
         objective: {
           direction: tipo,
-          coefficients: Array.from({ length: nVars }).map((_, i) => funcZ[i] || 0)
+          coefficients: Array.from({ length: varsCount }).map((_, i) => {
+            const val = parseNumericValue(funcZ[i]);
+            return isNaN(val) ? 0 : val;
+          })
         },
         constraints: restricoes.map(r => ({
-          coefficients: Array.from({ length: nVars }).map((_, i) => r.coeficientes[i] || 0),
+          coefficients: Array.from({ length: varsCount }).map((_, i) => {
+            const val = parseNumericValue(r.coeficientes[i]);
+            return isNaN(val) ? 0 : val;
+          }),
           type: r.sinal,
-          rhs: r.rhs
+          rhs: (() => {
+            const val = parseNumericValue(r.rhs);
+            return isNaN(val) ? 0 : val;
+          })()
         })),
         includeDual // NOVO: pede ao backend a solução tabular dual
       };
@@ -66,6 +85,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
 
       const data = await res.json();
 
@@ -96,16 +116,19 @@ const App: React.FC = () => {
           }} 
         />;
       case 'DADOS':
+        const varsCount = typeof nVars === 'number' ? nVars : parseInt(nVars.toString()) || 2;
+        const restsCount = typeof nRest === 'number' ? nRest : parseInt(nRest.toString()) || 2;
         return <DadosPage 
-          tipo={tipo} nVars={nVars} nRest={nRest} funcZ={funcZ} setFuncZ={setFuncZ}
+          tipo={tipo} nVars={varsCount} nRest={restsCount} funcZ={funcZ} setFuncZ={setFuncZ}
           restricoes={restricoes} setRestricoes={setRestricoes} onResolve={handleSolve} loading={loading}
         />;
       case 'RESULTADO':
+        const resVarsCount = typeof nVars === 'number' ? nVars : parseInt(nVars.toString()) || 2;
         return <ResultadoPage
           resultado={resultado}
           integerResultado={integerResultado} // NOVO: Passando a prop
           dualResultado={dualResultado} // NOVO: solução tabular dual
-          nVars={nVars}
+          nVars={resVarsCount}
           funcZ={funcZ}
           restricoes={restricoes}
           onNovoProblema={() => {

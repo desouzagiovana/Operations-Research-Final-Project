@@ -1,13 +1,14 @@
 import React from 'react';
 import { Badge } from '../components/Badge';
 import { Constraint } from '../types';
+import { NumericInput } from '../components/NumericInput';
 
 interface DadosPageProps {
   tipo: 'max' | 'min';
   nVars: number;
   nRest: number;
-  funcZ: Record<number, number>;
-  setFuncZ: (fn: (prev: Record<number, number>) => Record<number, number>) => void;
+  funcZ: Record<number, number | string>;
+  setFuncZ: (fn: (prev: Record<number, number | string>) => Record<number, number | string>) => void;
   restricoes: Constraint[];
   setRestricoes: (fn: (prev: Constraint[]) => Constraint[]) => void;
   onResolve: (includeDual?: boolean) => void;
@@ -15,11 +16,11 @@ interface DadosPageProps {
 }
 
 export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ, setFuncZ, restricoes, setRestricoes, onResolve, loading }) => {
-  const handleZChange = (i: number, val: number) => {
+  const handleZChange = (i: number, val: string) => {
     setFuncZ(prev => ({ ...prev, [i]: val }));
   };
 
-  const handleRestChange = (rIdx: number, cIdx: number, val: number) => {
+  const handleRestChange = (rIdx: number, cIdx: number, val: string) => {
     setRestricoes(prev => {
       const copy = [...prev];
       copy[rIdx].coeficientes[cIdx] = val;
@@ -35,7 +36,7 @@ export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ,
     });
   };
 
-  const handleRestRhs = (rIdx: number, val: number) => {
+  const handleRestRhs = (rIdx: number, val: string) => {
     setRestricoes(prev => {
       const copy = [...prev];
       copy[rIdx].rhs = val;
@@ -61,11 +62,10 @@ export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ,
             <span className="font-serif italic text-xl font-bold text-[#df6a45]">Z = </span>
             {Array.from({ length: nVars }).map((_, i) => (
               <div key={`z-${i}`} className="flex items-center gap-2">
-                <input 
-                  type="number" 
-                  className="w-20 p-2 border border-[#e8dcc8] rounded bg-white text-center focus:border-[#df6a45] outline-none" 
-                  value={funcZ[i] || 0}
-                  onChange={(e) => handleZChange(i, parseFloat(e.target.value) || 0)}
+                <NumericInput 
+                  value={funcZ[i] !== undefined ? funcZ[i] : 0}
+                  onChange={(val) => handleZChange(i, val)}
+                  className="w-20"
                 />
                 <span className="font-serif italic text-lg">x<sub>{i + 1}</sub></span>
                 {i < nVars - 1 && <span className="text-[#8c827a] font-medium">+</span>}
@@ -84,11 +84,10 @@ export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ,
               <div className="flex flex-wrap items-center gap-3">
                 {Array.from({ length: nVars }).map((_, j) => (
                   <div key={`rc-${i}-${j}`} className="flex items-center gap-2">
-                    <input 
-                      type="number" 
-                      className="w-20 p-2 border border-[#e8dcc8] rounded bg-white text-center focus:border-[#df6a45] outline-none" 
-                      value={r.coeficientes[j] || 0}
-                      onChange={(e) => handleRestChange(i, j, parseFloat(e.target.value) || 0)}
+                    <NumericInput 
+                      value={r.coeficientes[j] !== undefined ? r.coeficientes[j] : 0}
+                      onChange={(val) => handleRestChange(i, j, val)}
+                      className="w-20"
                     />
                     <span className="font-serif italic text-lg">x<sub>{j + 1}</sub></span>
                     {j < nVars - 1 && <span className="text-[#8c827a] font-medium">+</span>}
@@ -104,11 +103,10 @@ export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ,
                 <option value=">=">≥</option>
                 <option value="=">=</option>
               </select>
-              <input 
-                type="number" 
-                className="w-24 p-2 border border-[#e8dcc8] rounded bg-white text-center focus:border-[#df6a45] outline-none" 
-                value={r.rhs || 0}
-                onChange={(e) => handleRestRhs(i, parseFloat(e.target.value) || 0)}
+              <NumericInput 
+                value={r.rhs !== undefined ? r.rhs : 0}
+                onChange={(val) => handleRestRhs(i, val)}
+                className="w-24"
               />
             </div>
           ))}
@@ -129,7 +127,7 @@ export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ,
             onClick={() => onResolve(true)}
             className={`bg-white border-2 border-[#6b5894] text-[#6b5894] hover:bg-[#6b5894] hover:text-white px-10 py-4 rounded-lg font-medium shadow-sm transition-all flex items-center gap-3 ${loading ? 'opacity-70 cursor-wait' : ''}`}
             disabled={loading}
-            title="Resolve o problema e também monta e resolve o problema dual (forma tabular)"
+            title="Resolve o problem e também monta e resolve o problema dual (forma tabular)"
           >
             {loading ? 'Resolvendo...' : 'Resolver Dual Simplex'}
           </button>
@@ -138,3 +136,4 @@ export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ,
     </>
   );
 };
+

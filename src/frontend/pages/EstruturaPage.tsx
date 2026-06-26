@@ -1,12 +1,13 @@
 import React from 'react';
 import { Badge } from '../components/Badge';
+import { NumericInput } from '../components/NumericInput';
 
 interface EstruturaPageProps {
   tipo: 'max' | 'min';
-  nVars: number;
-  setNVars: (v: number) => void;
-  nRest: number;
-  setNRest: (r: number) => void;
+  nVars: number | string;
+  setNVars: (v: number | string) => void;
+  nRest: number | string;
+  setNRest: (r: number | string) => void;
   onContinue: () => void;
 }
 
@@ -27,12 +28,12 @@ export const EstruturaPage: React.FC<EstruturaPageProps> = ({ tipo, nVars, setNV
              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path></svg>
           </div>
           <label className="block text-xs font-bold tracking-widest uppercase text-[#8c827a] mb-2">Variáveis</label>
-          <input 
-            type="number" 
-            className="w-full text-center text-xl p-3 border border-[#e8dcc8] rounded bg-white text-[#362724] outline-none focus:border-[#df6a45]" 
+          <NumericInput 
             value={nVars} 
-            min={2} max={10} 
-            onChange={(e) => setNVars(parseInt(e.target.value) || 2)}
+            min={2} 
+            max={10} 
+            onChange={setNVars}
+            className="w-full text-xl"
           />
           <p className="text-[10px] text-[#8c827a] mt-2">Entre 2 e 10 variáveis</p>
         </div>
@@ -42,12 +43,12 @@ export const EstruturaPage: React.FC<EstruturaPageProps> = ({ tipo, nVars, setNV
              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
           </div>
           <label className="block text-xs font-bold tracking-widest uppercase text-[#8c827a] mb-2">Restrições</label>
-          <input 
-            type="number" 
-            className="w-full text-center text-xl p-3 border border-[#e8dcc8] rounded bg-white text-[#362724] outline-none focus:border-[#6b5894]" 
+          <NumericInput 
             value={nRest} 
-            min={1} max={15} 
-            onChange={(e) => setNRest(parseInt(e.target.value) || 1)}
+            min={1} 
+            max={15} 
+            onChange={setNRest}
+            className="w-full text-xl"
           />
           <p className="text-[10px] text-[#8c827a] mt-2">Entre 1 e 15 restrições</p>
         </div>
@@ -64,3 +65,4 @@ export const EstruturaPage: React.FC<EstruturaPageProps> = ({ tipo, nVars, setNV
     </>
   );
 };
+
