@@ -21,6 +21,12 @@ const fmtNum = (v: number) => {
 // Monta uma combinação linear "c1·v1 + c2·v2 + ..."
 const fmtLinear = (coeffs: number[], varName: string) =>
   coeffs.map((c, i) => `${fmtNum(c)}·${varName}${i + 1}`).join(' + ');
+// Formata um corte de ramificação (ex.: "x1 <= 3") a partir da restrição
+const fmtBranch = (c: any) => {
+  const idx = (c.coefficients || []).findIndex((v: number) => Math.abs(v) > 1e-9);
+  const varName = idx >= 0 ? `x${idx + 1}` : 'x?';
+  return `${varName} ${c.type} ${fmtNum(c.rhs)}`;
+};
 
 export const ResultadoPage: React.FC<ResultadoPageProps> = ({
   resultado,
@@ -179,6 +185,62 @@ export const ResultadoPage: React.FC<ResultadoPageProps> = ({
             </div>
           ))}
         </div>
+
+        {/* ===== SOLUÇÃO TABULAR INTEIRA ÓTIMA (bônus) ===== */}
+        {integerResultado && integerResultado.hasIntegerSolution && integerResultado.bestIterations && (
+          <div className="bg-white p-6 border-2 border-[#6b5894]/30 rounded-xl shadow-sm mt-8">
+            <h3 className="text-lg font-bold text-[#6b5894] mb-1">Solução Tabular Inteira Ótima (Branch and Bound)</h3>
+            <p className="text-xs text-[#8c827a] mb-4">
+              Tableau do subproblema cuja relaxação linear já resultou inteira — ou seja, a solução inteira ótima. {integerResultado.message}
+            </p>
+
+            {/* Cortes de ramificação que definem este nó */}
+            {integerResultado.branchingConstraints && integerResultado.branchingConstraints.length > 0 ? (
+              <div className="bg-[#F6EFE6] border border-[#e8dcc8] rounded-lg p-4 mb-5 text-sm">
+                <div className="mb-1 text-[#8c827a] text-[11px] uppercase font-bold tracking-wide">Cortes de ramificação adicionados:</div>
+                {integerResultado.branchingConstraints.map((c: any, i: number) => (
+                  <div key={`bc-${i}`} className="font-serif">{fmtBranch(c)}</div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-[#8c827a] italic mb-5">A relaxação original já era inteira (nenhum corte necessário).</div>
+            )}
+
+            {/* Z e variáveis inteiras */}
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <div className="bg-[#6b5894] text-white px-4 py-2 rounded-lg">
+                <span className="text-[10px] uppercase font-bold mr-2 opacity-80">Z inteiro</span>
+                <span className="font-serif font-bold text-lg">{Number(integerResultado.bestZ).toFixed(2)}</span>
+              </div>
+              {Object.entries(integerResultado.bestIntegerSolution || {}).map(([v, val]) => (
+                v.startsWith('x') ? (
+                  <div key={`iv-${v}`} className="bg-white px-4 py-2 border border-[#e8dcc8] rounded-lg">
+                    <span className="text-[#8c827a] text-[10px] uppercase font-bold mr-2">{v}</span>
+                    <span className="font-serif font-bold text-lg text-[#362724]">{Number(val).toFixed(0)}</span>
+                  </div>
+                ) : null
+              ))}
+            </div>
+
+            {/* Tableau do nó inteiro ótimo */}
+            {integerResultado.bestIterations.map((tab: number[][], idx: number) => (
+              <div key={`itab-${idx}`} className="mb-6 overflow-x-auto">
+                <h4 className="text-sm font-bold text-[#8c827a] mb-2 uppercase tracking-wide">Iteração {idx}</h4>
+                <table className="w-full border-collapse text-sm">
+                  <tbody>
+                    {tab.map((r: number[], i: number) => (
+                      <tr key={`ir-${i}`} className={i === tab.length - 1 ? 'font-bold bg-[#6b5894]/10' : 'bg-white'}>
+                        {r.map((cell: number, j: number) => (
+                          <td key={`ic-${j}`} className="p-2 border border-[#e8dcc8] text-center">{Number(cell).toFixed(2)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ===== SOLUÇÃO TABULAR DUAL (bônus) ===== */}
         {dualResultado && dualResultado.problem && dualResultado.result && (

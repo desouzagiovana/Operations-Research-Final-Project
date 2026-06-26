@@ -1,4 +1,4 @@
-import { Problem, SimplexResult } from '../models/problemModel.js';
+import { Problem, Constraint, SimplexResult } from '../models/problemModel.js';
 import { solveSimplex } from './simplexSolver.js';
 
 const EPSILON = 1e-6; // Tolerância para considerar um número como inteiro
@@ -15,6 +15,10 @@ export interface BnBResult {
   bestIntegerSolution?: { [variable: string]: number };
   bestZ?: number;
   message: string;
+  // NOVO (bônus tabular inteira): dados do subproblema cujo simplex deu a solução inteira ótima
+  bestProblem?: Problem;            // subproblema (com os cortes de ramificação)
+  bestIterations?: number[][][];    // tableaus do simplex desse subproblema
+  branchingConstraints?: Constraint[]; // apenas os cortes adicionados em relação ao original
 }
 
 export async function solveBranchAndBound(originalProblem: Problem): Promise<BnBResult> {
@@ -23,6 +27,8 @@ export async function solveBranchAndBound(originalProblem: Problem): Promise<BnB
   // Nossos limites globais. Começam com o pior cenário possível.
   let globalBestZ = isMax ? -Infinity : Infinity;
   let globalBestSolution: { [variable: string]: number } | undefined = undefined;
+  let globalBestResult: SimplexResult | undefined = undefined; // tableau do nó vencedor
+  let globalBestProblem: Problem | undefined = undefined;      // subproblema do nó vencedor
   let nodesExplored = 0;
   const MAX_NODES = 1000; // Trava de segurança para não explodir a memória
 
@@ -64,6 +70,8 @@ export async function solveBranchAndBound(originalProblem: Problem): Promise<BnB
     if (fractionalVarIdx === -1) {
       globalBestZ = currentZ;
       globalBestSolution = { ...result.optimalSolution };
+      globalBestResult = result;          // guarda o tableau desse nó
+      globalBestProblem = currentProblem; // guarda o subproblema (com cortes)
       return;
     }
 
@@ -102,11 +110,24 @@ export async function solveBranchAndBound(originalProblem: Problem): Promise<BnB
   await bnbNode(originalProblem);
 
   if (globalBestSolution) {
+    // (as) necessário: TS não rastreia atribuições feitas dentro do closure recursivo
+    const bestProblem = globalBestProblem as Problem | undefined;
+    const bestResult = globalBestResult as SimplexResult | undefined;
+
+    // Cortes de ramificação = restrições do nó vencedor além das do problema original
+    const numOriginalConstraints = originalProblem.constraints.length;
+    const branchingConstraints = bestProblem
+      ? bestProblem.constraints.slice(numOriginalConstraints)
+      : [];
+
     return {
       hasIntegerSolution: true,
       bestIntegerSolution: globalBestSolution,
       bestZ: globalBestZ,
-      message: `Solução inteira ótima encontrada após explorar ${nodesExplored} nós na árvore de decisão.`
+      message: `Solução inteira ótima encontrada após explorar ${nodesExplored} nós na árvore de decisão.`,
+      bestProblem,
+      bestIterations: bestResult ? bestResult.iterations : undefined,
+      branchingConstraints
     };
   } else {
     return {
