@@ -5,6 +5,7 @@ import { SimplexGraph } from '../components/SimplexGraph';
 interface ResultadoPageProps {
   resultado: any;
   integerResultado?: any; // <-- Prop opcional adicionada para corrigir o erro do TypeScript
+  dualResultado?: any; // <-- Solução tabular dual (bônus)
   nVars: number;
   funcZ: Record<number, number>;
   restricoes: any[]; // ou Constraint[] dependendo de como você importou
@@ -12,9 +13,19 @@ interface ResultadoPageProps {
   onVoltarEditar: () => void; // <-- Volta para a tela de Dados mantendo o problema
 }
 
+// Formata número curto (sem casas desnecessárias)
+const fmtNum = (v: number) => {
+  const r = Math.round(v * 100) / 100;
+  return Number.isInteger(r) ? String(r) : r.toFixed(2);
+};
+// Monta uma combinação linear "c1·v1 + c2·v2 + ..."
+const fmtLinear = (coeffs: number[], varName: string) =>
+  coeffs.map((c, i) => `${fmtNum(c)}·${varName}${i + 1}`).join(' + ');
+
 export const ResultadoPage: React.FC<ResultadoPageProps> = ({
   resultado,
   integerResultado, // <-- Extraindo a prop aqui
+  dualResultado, // <-- Solução dual
   nVars,
   funcZ,
   restricoes,
@@ -168,6 +179,73 @@ export const ResultadoPage: React.FC<ResultadoPageProps> = ({
             </div>
           ))}
         </div>
+
+        {/* ===== SOLUÇÃO TABULAR DUAL (bônus) ===== */}
+        {dualResultado && dualResultado.problem && dualResultado.result && (
+          <div className="bg-white p-6 border-2 border-[#6b5894]/30 rounded-xl shadow-sm mt-8">
+            <h3 className="text-lg font-bold text-[#6b5894] mb-1">Solução Dual (Tabular)</h3>
+            <p className="text-xs text-[#8c827a] mb-4">
+              Problema dual montado a partir do primal. Pela dualidade forte, o valor ótimo do dual coincide com o do primal.
+            </p>
+
+            {/* Formulação do dual */}
+            <div className="bg-[#F6EFE6] border border-[#e8dcc8] rounded-lg p-4 mb-5 text-sm">
+              <div className="font-serif">
+                <span className="font-bold text-[#6b5894]">
+                  {dualResultado.problem.objective.direction === 'max' ? 'Max' : 'Min'} W ={' '}
+                </span>
+                {fmtLinear(dualResultado.problem.objective.coefficients, 'y')}
+              </div>
+              <div className="mt-2 mb-1 text-[#8c827a] text-[11px] uppercase font-bold tracking-wide">Sujeito a:</div>
+              {dualResultado.problem.constraints.map((c: any, i: number) => (
+                <div key={`dc-${i}`} className="font-serif">
+                  {fmtLinear(c.coefficients, 'y')} {c.type} {fmtNum(c.rhs)}
+                </div>
+              ))}
+              <div className="mt-1 text-xs italic text-[#8c827a]">y<sub>i</sub> ≥ 0</div>
+            </div>
+
+            {dualResultado.result.status === 'optimal' ? (
+              <>
+                <div className="flex flex-wrap items-center gap-3 mb-5">
+                  <div className="bg-[#6b5894] text-white px-4 py-2 rounded-lg">
+                    <span className="text-[10px] uppercase font-bold mr-2 opacity-80">W ótimo</span>
+                    <span className="font-serif font-bold text-lg">{Number(dualResultado.result.optimalValue).toFixed(2)}</span>
+                  </div>
+                  {Object.entries(dualResultado.result.optimalSolution || {}).map(([v, val]) => (
+                    v.startsWith('x') ? (
+                      <div key={`dy-${v}`} className="bg-white px-4 py-2 border border-[#e8dcc8] rounded-lg">
+                        <span className="text-[#8c827a] text-[10px] uppercase font-bold mr-2">{v.replace('x', 'y')}</span>
+                        <span className="font-serif font-bold text-lg text-[#362724]">{Number(val).toFixed(2)}</span>
+                      </div>
+                    ) : null
+                  ))}
+                </div>
+
+                {dualResultado.result.iterations && dualResultado.result.iterations.map((tab: number[][], idx: number) => (
+                  <div key={`dtab-${idx}`} className="mb-6 overflow-x-auto">
+                    <h4 className="text-sm font-bold text-[#8c827a] mb-2 uppercase tracking-wide">Iteração {idx}</h4>
+                    <table className="w-full border-collapse text-sm">
+                      <tbody>
+                        {tab.map((r: number[], i: number) => (
+                          <tr key={`dr-${i}`} className={i === tab.length - 1 ? 'font-bold bg-[#6b5894]/10' : 'bg-white'}>
+                            {r.map((cell: number, j: number) => (
+                              <td key={`dcell-${j}`} className="p-2 border border-[#e8dcc8] text-center">{Number(cell).toFixed(2)}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-4 rounded-lg text-sm">
+                {dualResultado.result.message || 'O dual não pôde ser resolvido.'}
+              </div>
+            )}
+          </div>
+        )}
       </>
     );
   }

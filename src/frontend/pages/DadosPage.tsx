@@ -10,7 +10,7 @@ interface DadosPageProps {
   setFuncZ: (fn: (prev: Record<number, number>) => Record<number, number>) => void;
   restricoes: Constraint[];
   setRestricoes: (fn: (prev: Constraint[]) => Constraint[]) => void;
-  onResolve: () => void;
+  onResolve: (includeDual?: boolean) => void;
   loading: boolean;
 }
 
@@ -117,13 +117,21 @@ export const DadosPage: React.FC<DadosPageProps> = ({ tipo, nVars, nRest, funcZ,
           </div>
         </div>
         
-        <div className="flex justify-center">
-          <button 
-            onClick={onResolve}
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+          <button
+            onClick={() => onResolve(false)}
             className={`bg-[#362724] hover:bg-[#201715] text-white px-10 py-4 rounded-lg font-medium shadow-xl transition-all flex items-center gap-3 ${loading ? 'opacity-70 cursor-wait' : ''}`}
             disabled={loading}
           >
             {loading ? 'Resolvendo...' : 'Resolver Simplex'}
+          </button>
+          <button
+            onClick={() => onResolve(true)}
+            className={`bg-white border-2 border-[#6b5894] text-[#6b5894] hover:bg-[#6b5894] hover:text-white px-10 py-4 rounded-lg font-medium shadow-sm transition-all flex items-center gap-3 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+            disabled={loading}
+            title="Resolve o problema e também monta e resolve o problema dual (forma tabular)"
+          >
+            {loading ? 'Resolvendo...' : 'Resolver Dual Simplex'}
           </button>
         </div>
       </div>
